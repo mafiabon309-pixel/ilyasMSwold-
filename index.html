@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ilyas Legal Page QR Generator</title>
+    <title>Dewan Pak Law Associates - Legal QR & Image Generator</title>
     <!-- Official QRCode Library for 100% Real Scannable QR -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -38,13 +38,13 @@
             font-size: 11px;
             font-weight: bold;
         }
-        .control-group input {
+        .control-group input, .control-group select {
             padding: 5px;
             border-radius: 4px;
             border: 1px solid #cbd5e1;
-            width: 75px;
+            width: 85px;
             margin-top: 3px;
-            font-size: 13px;
+            font-size: 12px;
             outline: none;
         }
         .print-btn {
@@ -83,17 +83,35 @@
             flex: 1;
             position: relative;
         }
+        
+        /* Unlimited Full Page Textarea Styling */
         .editable-area {
             width: 100%;
-            min-height: 250px;
-            font-size: 16px;
             border: none;
             outline: none;
             background: transparent;
             font-family: inherit;
-            resize: none;
+            font-size: 16px;
             line-height: 1.6;
             color: #000000;
+            resize: none;
+            overflow: hidden;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2; /* Text stays above or below based on image layer setting */
+        }
+
+        /* Image / Logo Floating Box */
+        .image-container {
+            position: absolute;
+            top: 20mm;
+            left: 20mm;
+            display: none; /* Shown when image loaded */
+            cursor: move;
+        }
+        .image-container img {
+            display: block;
+            max-width: none;
         }
 
         /* QR Code Dynamic Positioning Box */
@@ -105,8 +123,10 @@
             padding: 0;
             border: none;
             text-align: center;
+            line-height: 0;
+            z-index: 5;
         }
-        #qrcode img {
+        #qrcode img, #qrcode canvas {
             display: block;
             margin: 0 auto;
         }
@@ -126,6 +146,9 @@
                 width: 100%;
                 min-height: 100vh;
             }
+            .editable-area {
+                overflow: visible;
+            }
         }
     </style>
 </head>
@@ -143,27 +166,55 @@
         </div>
         <div class="control-group">
             <label for="qr-size">QR Size:</label>
-            <input type="number" id="qr-size" value="65" min="40" max="150" oninput="generateQR()">
+            <input type="number" id="qr-size" value="65" min="30" max="200" oninput="generateQR()">
         </div>
         <div class="control-group">
-            <label for="qr-updown">QR Upar/Neeche:</label>
-            <input type="number" id="qr-updown" value="20" min="0" max="300" oninput="updateQRPosition()">
+            <label for="img-file">Upload Logo/Pic:</label>
+            <input type="file" id="img-file" accept="image/*" onchange="loadUserImage(event)" style="width: 100px; font-size: 10px;">
         </div>
         <div class="control-group">
-            <label for="qr-leftright">QR Side (Left/Right):</label>
-            <input type="number" id="qr-leftright" value="15" min="0" max="200" oninput="updateQRPosition()">
+            <label for="img-size">Pic Size (px):</label>
+            <input type="number" id="img-size" value="120" min="20" max="500" oninput="updateImageStyle()">
+        </div>
+        <div class="control-group">
+            <label for="img-layer">Layer Position:</label>
+            <select id="img-layer" onchange="updateImageStyle()">
+                <option value="behind">Likhawat ke Peeche</option>
+                <option value="front">Likhawat ke Upar</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="img-left">Pic Left (mm):</label>
+            <input type="number" id="img-left" value="20" min="0" max="200" oninput="updateImageStyle()">
+        </div>
+        <div class="control-group">
+            <label for="img-top">Pic Top (mm):</label>
+            <input type="number" id="img-top" value="20" min="0" max="300" oninput="updateImageStyle()">
         </div>
         <button class="print-btn" onclick="window.print()">🖨️ Print</button>
     </div>
 
     <!-- Legal Page Container -->
     <div class="legal-page" id="page-box">
-        <div class="screen-only-header" style="font-size: 12px; color: #64748b; margin-bottom: 15px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px;">
-            DEWAN PAK LAW ASSOCIATES (Screen Guide - Will not appear in Print)
+        <!-- VIP Professional Header Label -->
+        <div class="screen-only-header" style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 15px; border-bottom: 2px solid #0284c7; padding-bottom: 8px; letter-spacing: 1px;">
+            ⚖️ DEWAN PAK LAW ASSOCIATES — VIP LEGAL DOCUMENT PORTAL (Screen Guide)
         </div>
         
         <div class="content-box">
-            <textarea class="editable-area" id="user-text" placeholder="Yahan apna text likhein..." oninput="generateQR()">Ilyas Maqbool Legal Document Verified</textarea>
+            <!-- Uploaded Image / Logo Element -->
+            <div class="image-container" id="img-box">
+                <img id="user-uploaded-img" src="" alt="Logo">
+            </div>
+
+            <!-- Unlimited Auto-Resizing Textarea -->
+            <textarea class="editable-area" id="user-text" placeholder="Yahan poore page par apna lamba text likhein..." oninput="autoGrow(this); generateQR()">E-STAMP
+(GOVERNMENT OF PUNJAB)
+
+PB-LHR-AE739AEBB59A1425
+PSID-40172604230730256
+Rs 100/-
+One Hundred Rupees Only</textarea>
         </div>
 
         <!-- QR Code Position Box -->
@@ -173,6 +224,11 @@
     </div>
 
     <script>
+        function autoGrow(element) {
+            element.style.height = '5px';
+            element.style.height = (element.scrollHeight) + 'px';
+        }
+
         function updateLayout() {
             const topVal = document.getElementById('top-margin').value;
             const bottomVal = document.getElementById('bottom-margin').value;
@@ -182,39 +238,78 @@
             pageBox.style.paddingBottom = bottomVal + 'px';
         }
 
-        function updateQRPosition() {
-            const upDownVal = document.getElementById('qr-updown').value;
-            const leftRightVal = document.getElementById('qr-leftright').value;
-            const qrBox = document.getElementById('qr-box');
+        function loadUserImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imgElement = document.getElementById('user-uploaded-img');
+                    imgElement.src = e.target.result;
+                    document.getElementById('img-box').style.display = 'block';
+                    updateImageStyle();
+                }
+                reader.readAsDataURL(file);
+            }
+        }
 
-            qrBox.style.bottom = upDownVal + 'mm';
-            qrBox.style.right = leftRightVal + 'mm';
+        function updateImageStyle() {
+            const imgBox = document.getElementById('img-box');
+            const imgElement = document.getElementById('user-uploaded-img');
+            const sizeVal = document.getElementById('img-size').value;
+            const leftVal = document.getElementById('img-left').value;
+            const topVal = document.getElementById('img-top').value;
+            const layerVal = document.getElementById('img-layer').value;
+            const textArea = document.getElementById('user-text');
+
+            imgElement.style.width = sizeVal + 'px';
+            imgBox.style.left = leftVal + 'mm';
+            imgBox.style.top = topVal + 'mm';
+
+            if (layerVal === 'behind') {
+                imgBox.style.zIndex = '1';
+                imgElement.style.opacity = '0.25'; // Watermark effect behind text
+            } else {
+                imgBox.style.zIndex = '10';
+                imgElement.style.opacity = '1'; // Solid on top of text
+            }
         }
 
         function generateQR() {
             const text = document.getElementById('user-text').value;
-            const sizeVal = parseInt(document.getElementById('qr-size').value) | 65;
+            const sizeVal = parseInt(document.getElementById('qr-size').value) || 65;
             
             const qrContainer = document.getElementById('qrcode');
             qrContainer.innerHTML = ""; 
             
             try {
+                qrContainer.style.width = sizeVal + 'px';
+                qrContainer.style.height = sizeVal + 'px';
+
                 new QRCode(qrContainer, {
                     text: text.trim() === "" ? "ILYAS" : text,
                     width: sizeVal,
                     height: sizeVal,
                     colorDark : "#000000",
                     colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
+                    correctLevel : QRCode.CorrectLevel.L
                 });
+
+                setTimeout(() => {
+                    const qrChild = qrContainer.querySelector('img, canvas');
+                    if (qrChild) {
+                        qrChild.style.width = sizeVal + 'px';
+                        qrChild.style.height = sizeVal + 'px';
+                    }
+                }, 10);
             } catch (err) {
                 console.log(err);
             }
         }
 
         window.onload = function() {
+            const ta = document.getElementById('user-text');
+            autoGrow(ta);
             generateQR();
-            updateQRPosition();
         };
     </script>
 
